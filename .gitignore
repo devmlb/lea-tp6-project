@@ -1,0 +1,37 @@
+# ===== IDEs =====
+
+# Eclipse
+/.classpath
+/.project
+/.settings/
+/bin/
+
+# IntelliJ IDEA
+/.idea/
+*.iml
+/out/
+
+# VS Code
+/.vscode/
+
+# NetBeans
+/nbproject/
+/dist/
+
+# ===== Build / generation =====
+
+/build/
+/build-test/
+/gen/
+
+# ===== Java =====
+
+*.class
+*.jar
+*.war
+*.ear
+
+# ===== OS =====
+
+.DS_Store
+Thumbs.db

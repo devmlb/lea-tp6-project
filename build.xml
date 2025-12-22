@@ -1,0 +1,109 @@
+<project name="lea-tp6-project" default="build" basedir=".">
+
+	<property name="java.release" value="21"/>
+	<property name="src.dir" value="src"/>
+	<property name="test.dir" value="test"/>
+	<property name="gen.dir" value="gen"/>
+	<property name="build.dir" value="build"/>
+	<property name="test.build.dir" value="build-test"/>
+	<property name="lib.dir" value="lib"/>
+	<property name="package.dir" value="lea"/>
+	<property name="lexer.file" value="Lexer.flex"/>
+	<property name="parser.file" value="Parser.cup"/>
+	<property name="main.class" value="Main"/>
+	
+	<macrodef name="generate-lexer">
+		<attribute name="package"/>
+		<attribute name="file"/>
+    	<sequential>
+			<java jar="${lib.dir}/jflex-full-1.9.1.jar" fork="true">
+				<arg value="--nobak"/>
+				<arg value="-d"/>
+				<arg value="${gen.dir}/@{package}"/>
+				<arg value="${src.dir}/@{package}/@{file}"/>
+			</java>
+		</sequential>
+	</macrodef>
+
+	<macrodef name="generate-parser">
+		<attribute name="package"/>
+		<attribute name="file"/>
+		<sequential>
+			<java jar="${lib.dir}/java-cup-11b.jar" fork="true">
+				<arg value="-parser"/>
+				<arg value="Parser"/>
+				<arg value="-symbols"/>
+				<arg value="Terminal"/>
+				<arg value="-destdir"/>
+				<arg value="${gen.dir}/@{package}"/>
+				<arg value="${src.dir}/@{package}/@{file}"/>
+			</java>
+		</sequential>
+	</macrodef>
+
+	<target name="generate" depends="clean">
+		<mkdir dir="${gen.dir}"/>
+		<mkdir dir="${gen.dir}/${package.dir}"/>
+		<generate-lexer  package="${package.dir}" file="${lexer.file}"/>
+		<generate-parser package="${package.dir}" file="${parser.file}"/>
+	</target>
+	
+	<target name="compile" depends="generate">
+		<mkdir dir="${build.dir}"/>
+		<javac destdir="${build.dir}" includeantruntime="false" release="${java.release}">
+			<src path="${src.dir}"/>
+			<src path="${gen.dir}"/>
+			<compilerarg value="-Xlint:all,-cast,-serial"/>
+			<classpath>
+				<fileset dir="${lib.dir}" includes="*.jar"/>
+			</classpath>
+		</javac>
+	</target>
+	
+	<target name="test-compile" depends="compile">
+		<mkdir dir="${test.build.dir}"/>
+		<javac destdir="${test.build.dir}" includeantruntime="false" release="${java.release}">
+			<src path="${test.dir}"/>
+			<compilerarg value="-Xlint:all"/>
+			<classpath>
+				<pathelement path="${build.dir}"/>
+				<fileset dir="${lib.dir}" includes="*.jar"/>
+			</classpath>
+		</javac>
+	</target>
+
+	<target name="test" depends="test-compile">
+	    <java classname="org.junit.platform.console.ConsoleLauncher"
+	          fork="true"
+	          failonerror="true">
+			<classpath>
+				<pathelement path="${build.dir}"/>
+				<pathelement path="${test.build.dir}"/>
+				<fileset dir="${lib.dir}" includes="*.jar"/>
+			</classpath>
+	        <arg value="--scan-classpath"/>
+	        <arg value="--details=tree"/>
+	        <arg value="--disable-ansi-colors"/>
+	    </java>
+	</target>
+	
+	<target name="run">
+		<java classname="${package.dir}.${main.class}" fork="true">
+			<classpath>
+				<pathelement path="${build.dir}"/>
+				<fileset dir="${lib.dir}" includes="*.jar"/>
+			</classpath>
+		</java>
+	</target>
+	
+	<target name="build" depends="compile,run"/>
+	
+	<target name="clean">
+		<delete>
+			<fileset dir="${gen.dir}" includes="**/*.java" erroronmissingdir="false"/>
+			<fileset dir="${build.dir}" erroronmissingdir="false"/>
+		    <fileset dir="${test.build.dir}" erroronmissingdir="false"/>
+		</delete>
+	</target>
+
+</project>

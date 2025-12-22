@@ -1,0 +1,197 @@
+package lea;
+
+import java.util.*;
+import java_cup.runtime.Symbol;
+
+import lea.Node.*;
+
+parser code {:
+
+	private Reporter reporter;
+	private Reporter.Span errorSpan = Reporter.Span.EMPTY;
+
+	@SuppressWarnings("deprecation")
+	public Parser(Lexer lexer, Reporter reporter) {
+		super(lexer);
+		this.reporter = reporter;
+	}
+  
+	public Program parseProgram() {
+		try {
+			if(parse().value instanceof Program program)
+				return program;
+		} catch (Exception e) {
+			reporter.error(Reporter.Phase.PARSER, Reporter.Span.EMPTY, "Exception: " + e.getClass().getSimpleName());
+		}
+		return new Program(new HashMap<>(), new ErrorNode());
+	}
+
+	@Override
+	public void syntax_error(Symbol currentSymbol) {
+		if(currentSymbol != null) 
+			errorSpan = errorSpan.union(reporter.span(currentSymbol.value));
+	}
+
+	private ErrorNode error(String message) { 
+		reporter.error(Reporter.Phase.PARSER, errorSpan, message);
+		errorSpan = Reporter.Span.EMPTY;
+		return new ErrorNode(); 
+	}
+
+	private <T extends Node> T mark(T n, Object anchorStart, Object anchorEnd) { 
+		reporter.attach(n, anchorStart, anchorEnd); 
+		return n; 
+	}
+    
+:}
+
+terminal					ALGORITHME, VARIABLES, DEBUT, FIN;
+terminal					SI, ALORS, SINON, TANT, QUE, FAIRE, INTERROMPRE, POUR, DE, A, PAS;
+terminal					AFFECTATION, DEUX_PT, VIRG, PT_VIRG, PAR_G, PAR_D, CROCHET_G, CROCHET_D;
+terminal					PLUS, MOINS, MULTIPLIE, ET, OU, EGAL, INFERIEUR;
+terminal					LONGUEUR, ECRIRE, TABLEAU;
+terminal		Value		LITERAL;
+terminal		Identifier	ID;
+terminal		Type		TYPEBASE;
+
+non terminal	Program					algo;
+non terminal	Type					type;
+non terminal	Map<Identifier, Type>	declarations;
+non terminal	Instruction				instruction, commande, si, tantque, pour;
+non terminal	Sequence				sequence;
+non terminal	Expression				expression, catch_expr, somme, produit, oppose, terme, disjunction, comparison, conjunction;
+non terminal	Expression				affect_gauche;
+non terminal	List<Expression>		listeexpr;
+
+algo ::=
+		ALGORITHME 
+		DEBUT sequence:s FIN							{: RESULT = new Program(new HashMap<>(), s); :}
+	|	ALGORITHME 
+		VARIABLES declarations:d 	
+		DEBUT sequence:s FIN							{: RESULT = new Program(d, s); :}
+	|	error FIN										{: RESULT = new Program(new HashMap<>(), error("Erreur dans le programme")); :}
+;
+
+declarations ::=
+		/* Empty */										{: RESULT = new HashMap<>(); :}
+	|	declarations:s 
+		ID:id DEUX_PT type:t PT_VIRG					{: RESULT = s; RESULT.put(id, t); :}
+;
+
+type ::=
+		TYPEBASE:t										{: RESULT = t; :}
+	|	TABLEAU:deb DE type:t							{: RESULT = mark(new TArray(t), deb, t); :}
+;
+
+sequence ::=
+		/* Empty */										{: RESULT = new Sequence(new ArrayList<>()); :}
+	|	sequence:s instruction:i						{: RESULT = s; RESULT.commands().add(i); :}
+	|	sequence:s PT_VIRG								{: RESULT = s; :}
+;
+
+instruction ::=	
+		si:s		 									{: RESULT = s; :}
+	|	tantque:t				 						{: RESULT = t; :}
+	|	pour:p				 							{: RESULT = p; :}
+	|	commande:c PT_VIRG								{: RESULT = c; :}
+	|	error PT_VIRG									{: RESULT = error("Erreur dans la commande"); :}
+;
+
+commande ::=	
+		affect_gauche:id AFFECTATION expression:e		{: RESULT = mark(new Assignment(id,e), id, e); :}
+	|	ECRIRE:deb PAR_G listeexpr:e PAR_D:fin			{: RESULT = mark(new Write(e), deb, fin); :}
+	|	INTERROMPRE:i									{: RESULT = mark(new Break(), i, i); :}
+;
+
+affect_gauche ::=
+		ID:id 											{: RESULT = id; :}
+	|	terme:t CROCHET_G expression:e CROCHET_D:fin	{: RESULT = mark(new Index(t,e), t, fin); :}
+;
+
+tantque ::=
+		TANT:deb QUE catch_expr:cond FAIRE
+			sequence:body FIN TANT QUE:fin				{: RESULT = mark(new While(cond, body), deb, fin); :}
+ 	|	error FIN TANT QUE								{: RESULT = error("Erreur dans la boucle tant que"); :}
+;
+
+pour ::=
+		POUR:deb ID:id 
+		DE catch_expr:d A catch_expr:f 
+		FAIRE sequence:body FIN POUR:fin				{: RESULT = mark(new For(id, d, f, Optional.empty(), body), deb, fin); :}
+	|	POUR:deb ID:id 
+		DE catch_expr:d A catch_expr:f PAS catch_expr:p 
+		FAIRE sequence:body FIN POUR:fin				{: RESULT = mark(new For(id, d, f, Optional.of(p), body), deb, fin); :}
+ 	|	error FIN POUR									{: RESULT = error("Erreur dans la boucle pour"); :}
+;
+
+si ::=
+		SI:deb catch_expr:cond ALORS 
+			sequence:iftrue
+		SINON 
+			sequence:iffalse 
+		FIN SI:fin										{: RESULT = mark(new If(cond, iftrue, Optional.of(iffalse)), deb, fin); :}
+	|	SI:deb catch_expr:cond ALORS 
+			sequence:iftrue
+		FIN SI:fin										{: RESULT = mark(new If(cond, iftrue, Optional.empty()), deb, fin); :}
+ 	|	error FIN SI									{: RESULT = error("Erreur dans la conditionnelle"); :}
+;
+
+ /* Expressions */
+
+catch_expr ::=
+		expression:e		 							{: RESULT = e; :}
+	|	error											{: RESULT = error("Erreur dans l'expression"); :}
+	|													{: RESULT = error("Expression manquante"); :}
+;
+
+expression ::= 	
+		disjunction:d									{: RESULT = d; :}
+;
+
+disjunction ::=
+		conjunction:d									{: RESULT = d; :}
+	|	disjunction:l OU conjunction:r					{: RESULT = mark(new Or(l, r), l, r); :}
+;
+
+conjunction ::=
+		comparison:c									{: RESULT = c; :}
+	|	conjunction:l ET comparison:r					{: RESULT = mark(new And(l, r), l, r); :}
+;
+
+comparison ::=
+		somme:s											{: RESULT = s; :}
+	|	somme:l INFERIEUR somme:r						{: RESULT = mark(new Lower(l, r), l, r); :}
+	|	somme:l EGAL somme:r							{: RESULT = mark(new Equal(l, r), l, r); :}
+;
+
+somme ::=
+		produit:p										{: RESULT = p; :}
+	|	somme:l	PLUS	produit:r						{: RESULT = mark(new Sum(l, r), l, r); :}
+	|	somme:l	MOINS	produit:r						{: RESULT = mark(new Sum(l, r), l, r); :}
+;
+
+produit ::=
+		oppose:o										{: RESULT = o; :}
+	|	produit:l	MULTIPLIE	oppose:r				{: RESULT = mark(new Product(l, r), l, r); :}
+;
+
+oppose ::=	
+		terme:i											{: RESULT = i; :}
+	|	MOINS:deb oppose:o					        	{: RESULT = mark(new Inverse(o), deb, o); :}
+;
+
+terme ::=
+		LITERAL:l										{: RESULT = l; :}
+	|	ID:id											{: RESULT = id; :}
+    |	PAR_G	expression:e	PAR_D					{: RESULT = e; :}
+   	|	LONGUEUR:deb PAR_G expression:e PAR_D:fin		{: RESULT = mark(new Length(e), deb, fin); :}
+	|	terme:t CROCHET_G expression:e CROCHET_D:fin	{: RESULT = mark(new Index(t,e), t, fin); :}
+	|	CROCHET_G:deb listeexpr:e CROCHET_D:fin			{: RESULT = mark(new InitList(e), deb, fin); :}
+   	|	TABLEAU:deb PAR_G expression:l 
+   		VIRG expression:d PAR_D:fin						{: RESULT = mark(new InitArray(l, d), deb, fin); :}
+;
+
+listeexpr ::=
+		expression:expr									{: RESULT = new ArrayList<>(); RESULT.add(expr); :}
+	|	listeexpr:l VIRG expression:expr				{: RESULT = l; RESULT.add(expr); :}
+;
