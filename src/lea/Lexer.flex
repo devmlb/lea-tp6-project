@@ -54,6 +54,7 @@ import lea.Node.*;
 %%
 
  /* Keywords */
+"enregistrement"     { return mark(Terminal.ENREGISTREMENT); }
 "algorithme"   				{ return mark(Terminal.ALGORITHME); }
 "variables"    				{ return mark(Terminal.VARIABLES); }
 "début"        				{ return mark(Terminal.DEBUT); }

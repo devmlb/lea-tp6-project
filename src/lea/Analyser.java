@@ -111,34 +111,37 @@ public final class Analyser {
 
 		final Map<Identifier, Type> declared;
 		final Set<Identifier> written;
+		final Map<Identifier, Map<Identifier, Type>> enrgs;
 		final boolean accessible;
 
 		public Context(Program program) {
 			declared = Map.copyOf(program.declared());
 			written = Set.of();
+			enrgs = Map.copyOf(program.enrs());
 			accessible=true;
 		}
 
-		private Context(Map<Identifier, Type> declared, Set<Identifier> written, boolean accessible) {
+		private Context(Map<Identifier, Type> declared, Set<Identifier> written, Map<Identifier, Map<Identifier, Type>> enrgs, boolean accessible) {
 			this.declared = Map.copyOf(declared);
 			this.written = Set.copyOf(written);
+			this.enrgs = Map.copyOf(enrgs);
 			this.accessible = accessible;
 		}
 
 		public Context withWritten(Identifier id) { 
 			var writ = new HashSet<>(written); 
-			writ.add(id); 
-			return new Context(declared, writ, accessible); 
+			writ.add(id);
+			return new Context(declared, writ, enrgs, accessible); 
 		}
 
 		public Context withAccessible(boolean accessible) { 
-			return new Context(declared, written, accessible); 
+			return new Context(declared, written, enrgs, accessible); 
 		}
 
 		public Context merge(Context other) {
 			var writ = new HashSet<>(written);
 			writ.retainAll(other.written);
-			return new Context(declared, writ, accessible || other.accessible);
+			return new Context(declared, writ, enrgs, accessible || other.accessible);
 		}
 
 	}

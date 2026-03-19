@@ -23,7 +23,7 @@ parser code {:
 		} catch (Exception e) {
 			reporter.error(Reporter.Phase.PARSER, Reporter.Span.EMPTY, "Exception: " + e.getClass().getSimpleName());
 		}
-		return new Program(new HashMap<>(), new ErrorNode());
+		return new Program(new HashMap<>(), new ErrorNode(), new HashMap<>());
 	}
 
 	@Override
@@ -55,7 +55,7 @@ parser code {:
     
 :}
 
-terminal					ALGORITHME, VARIABLES, DEBUT, FIN;
+terminal					ALGORITHME, VARIABLES, DEBUT, FIN, ENREGISTREMENT;
 terminal					SI, ALORS, SINON, TANT, QUE, FAIRE, INTERROMPRE, POUR, DE, A, PAS;
 terminal					AFFECTATION, DEUX_PT, VIRG, PT_VIRG, PAR_G, PAR_D, CROCHET_G, CROCHET_D;
 terminal					PLUS, MOINS, MULTIPLIE, ET, OU, EGAL, INFERIEUR;
@@ -64,22 +64,35 @@ terminal		Value		LITERAL;
 terminal		Identifier	ID;
 terminal		Type		TYPEBASE;
 
-non terminal	Program					algo;
+non terminal	Program					tout;
+non terminal	Map<String, Object>		algo;
 non terminal	Type					type;
 non terminal	Map<Identifier, Type>	declarations;
+non terminal	Map<Identifier, Map<Identifier, Type>>	enrg;
 non terminal	Instruction				instruction, commande, si, tantque, pour;
 non terminal	Sequence				sequence;
 non terminal	Expression				expression, catch_expr, somme, produit, oppose, terme, disjunction, comparison, conjunction;
 non terminal	Expression				affect_gauche;
 non terminal	List<Expression>		listeexpr;
 
+tout ::=
+		enrg:e 
+		algo:a											{: RESULT = new Program(a.get("d"), a.get("s"), e); :}
+;
+
 algo ::=
 		ALGORITHME 
-		DEBUT sequence:s FIN							{: RESULT = new Program(new HashMap<>(), s); :}
+		DEBUT sequence:s FIN							{: RESULT = Map.of("d", new HashMap<>(), "s", s); :}
 	|	ALGORITHME 
 		VARIABLES declarations:d 	
-		DEBUT sequence:s FIN							{: RESULT = new Program(d, s); :}
-	|	error											{: RESULT = new Program(new HashMap<>(), error("Erreur dans le programme")); :}
+		DEBUT sequence:s FIN							{: RESULT = Map.of("d", d, "s", s); :}
+	|	error											{: RESULT = Map.of("d", new HashMap<>(), "s", error("Erreur dans le programme")); :}
+;
+
+enrg ::=
+		/* Empty */										{: RESULT = new HashMap<>(); :}
+	|	enrg:e
+		ENREGISTREMENT ID:id DEBUT declarations:d FIN	{: RESULT = e; RESULT.put(id, d); :}
 ;
 
 declarations ::=
