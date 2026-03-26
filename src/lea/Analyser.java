@@ -108,7 +108,6 @@ public final class Analyser {
 	}
 
 	static final class Context {
-
 		final Map<Identifier, Type> declared;
 		final Set<Identifier> written;
 		final Map<Identifier, Map<Identifier, Type>> enrgs;

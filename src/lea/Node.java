@@ -4,8 +4,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import lea.Node.Identifier;
-
 public sealed interface Node {
 	public record Program(Map<Identifier, Type> declared, Instruction body, Map<Identifier, Map<Identifier, Type>> enrs)	implements	Node {}
 

@@ -65,7 +65,7 @@ terminal		Identifier	ID;
 terminal		Type		TYPEBASE;
 
 non terminal	Program					tout;
-non terminal	Map<String, Object>		algo;
+non terminal	TupleWithError<Map<Identifier, Type>, Sequence>	algo;
 non terminal	Type					type;
 non terminal	Map<Identifier, Type>	declarations;
 non terminal	Map<Identifier, Map<Identifier, Type>>	enrg;
@@ -77,16 +77,16 @@ non terminal	List<Expression>		listeexpr;
 
 tout ::=
 		enrg:e 
-		algo:a											{: RESULT = new Program(a.get("d"), a.get("s"), e); :}
+		algo:a											{: RESULT = new Program(a.getA(), a.getError() == null ? a.getB() : a.getError(), e); :}
 ;
 
 algo ::=
 		ALGORITHME 
-		DEBUT sequence:s FIN							{: RESULT = Map.of("d", new HashMap<>(), "s", s); :}
+		DEBUT sequence:s FIN							{: RESULT = new TupleWithError<Map<Identifier, Type>, Sequence>(new HashMap<>(), s, null); :}
 	|	ALGORITHME 
 		VARIABLES declarations:d 	
-		DEBUT sequence:s FIN							{: RESULT = Map.of("d", d, "s", s); :}
-	|	error											{: RESULT = Map.of("d", new HashMap<>(), "s", error("Erreur dans le programme")); :}
+		DEBUT sequence:s FIN							{: RESULT = new TupleWithError<Map<Identifier, Type>, Sequence>(d, s, null); :}
+	|	error											{: RESULT = new TupleWithError<Map<Identifier, Type>, Sequence>(new HashMap<>(), null, error("Erreur dans le programme")); :}
 ;
 
 enrg ::=
