@@ -211,6 +211,7 @@ oppose ::=
 terme ::=
 		LITERAL:l										{: RESULT = l; :}
 	|	ID:id											{: RESULT = id; :}
+	|	terme:t PT ID:id								{: RESULT = mark(new FieldAccess(t, id)); :}
     |	PAR_G	expression:e	PAR_D					{: RESULT = e; :}
    	|	LONGUEUR:deb PAR_G expression:e PAR_D:fin		{: RESULT = mark(new Length(e), deb, fin); :}
 	|	terme:t CROCHET_G expression:e CROCHET_D:fin	{: RESULT = mark(new Index(t,e), t, fin); :}
